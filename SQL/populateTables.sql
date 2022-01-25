@@ -29,7 +29,7 @@ INSERT INTO stops (trip,
     (1, 'Amílcar Cabral International Airport', 'https://goo.gl/maps/3Zbxhysy7NCJ9NsC8', '2022-01-21T16:32:14.307Z', '2022-01-21T15:32:14.307Z', null, null, 'joely.rooke@gmail.com', '+447443915741', 'hope my visa works'),
     (1, 'Susie Apartment', 'https://goo.gl/maps/bDbnAzQ7ABGvVBqz8', '2022-01-21T16:32:14.307Z', '2022-01-21T15:32:14.307Z', null, null, 'joely.rooke@gmail.com', '+447443915741', 'Cannot wait to see the sea from her balcony');
 
-INSERT INTO trip_contacts (stop, contact) values (1, 1), (2, 1), (3, 1);
+INSERT INTO trip_contacts (stop, contact) values (1, 1), (4,3);
 
 INSERT INTO trip_companions (stop, name, contact_type, contact) values 
 (1, 'Will', 'email', 'will.mundy@hotmail.com'), 

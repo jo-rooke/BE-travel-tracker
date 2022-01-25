@@ -43,6 +43,6 @@ CREATE TABLE trip_companions (
 
 CREATE TABLE trip_contacts (
 	id serial PRIMARY KEY,
-	stop int REFERENCES stops (id),
+	trip int REFERENCES trips (id),
 	contact int REFERENCES contacts (id)
 );
