@@ -1,3 +1,4 @@
+DROP TABLES IF EXISTS users, contacts, trips, stops, trip_companions,trip_contacts
 CREATE TABLE users (
 	id serial PRIMARY KEY ,
 	name varchar(50),
@@ -37,7 +38,6 @@ CREATE TABLE trip_companions (
 	id serial PRIMARY KEY,
 	stop int REFERENCES stops (id),
 	name varchar(50),
-	contact_type varchar(10),
 	contact varchar(50)
 );
 

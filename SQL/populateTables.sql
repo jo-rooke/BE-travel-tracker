@@ -32,8 +32,8 @@ INSERT INTO stops (trip,
 INSERT INTO trip_contacts (stop, contact) values (1, 1), (4,3);
 
 INSERT INTO trip_companions (stop, name, contact_type, contact) values 
-(1, 'Will', 'email', 'will.mundy@hotmail.com'), 
-(2, 'Will', 'email', 'will.mundy@hotmail.com'), 
-(3, 'Susie', 'email', 'susie@gmail.com')
+(1, 'Will', 'will.mundy@hotmail.com'), 
+(2, 'Will', 'will.mundy@hotmail.com'), 
+(3, 'Susie', 'susie@gmail.com')
 
 

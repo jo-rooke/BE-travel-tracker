@@ -93,9 +93,6 @@ app.delete("/contacts/:contactId", async (req, res) => {
   });
 });
 
-// returns all names from trips, count of stops for each trip from stops, timestamp of first
-// expected arrival and last expected departure from stops, and contact name from contacts join
-// trip_contacts
 app.get("/trips/:userId", async (req, res) => {
   const { userId } = req.params;
   const tripNames = await client.query(
@@ -153,6 +150,121 @@ app.post("/trips/:userId", async (req, res) => {
   res.json({
     status: "success",
     data: createTrip.rows,
+  });
+});
+
+//- updates stops.actual_departure to be the current timestamp, where stops.id === stopId
+app.put("/stops/departure/:stopId", async (req, res) => {
+  const { stopId } = req.params;
+  const dbres = await client.query(
+    "UPDATE stops SET actual_departure = current_timestamp WHERE id = $1 RETURNING *",
+    [stopId]
+  );
+  res.json({
+    status: "success",
+    data: dbres.rows,
+  });
+});
+
+app.put("/stops/arrived/:stopId", async (req, res) => {
+  const { stopId } = req.params;
+  const dbres = await client.query(
+    "UPDATE stops SET actual_arrival = current_timestamp WHERE id = $1 RETURNING *",
+    [stopId]
+  );
+  res.json({
+    status: "success",
+    data: dbres.rows,
+  });
+});
+
+app.delete("/stops/:stopId", async (req, res) => {
+  const { stopId } = req.params;
+  const deleteDependents = await client.query(
+    " DELETE FROM trip_companions WHERE stop = $1",
+    [stopId]
+  );
+  const dbres = await client.query(
+    "DELETE FROM stops WHERE id = $1 RETURNING *",
+    [stopId]
+  );
+  res.json({
+    status: "success",
+    data: dbres.rows,
+  });
+});
+
+app.get("/stops/:tripId", async (req, res) => {
+  const { tripId } = req.params;
+  const stops = await client.query(
+    " SELECT * from stops where stops.trip = $1 ORDER BY exp_arrival ASC ",
+    [tripId]
+  );
+  for (let stop of stops.rows) {
+    const companions = await client.query(
+      "SELECT name, contact from trip_companions where trip_companions.stop = $1",
+      [stop.id]
+    );
+    stop.companions = companions.rows;
+  }
+  res.json({
+    status: "success",
+    data: stops.rows,
+  });
+});
+
+app.post("/stops/:tripId", async (req, res) => {
+  const { stopId } = req.params;
+  const {
+    stopName,
+    stopLink,
+    stopArrival,
+    stopDeparture,
+    stopEmail,
+    stopPhone,
+    stopDetails,
+    companionName,
+    companionContact,
+  } = req.body;
+  const createStop = await client.query(
+    "INSERT INTO stops (trip, name, location_link, exp_arrival, exp_departure, actual_arrival, actual_departure, best_email, best_phone, details) values ($1, $2, $3, $4, $5, null, null, $6, $7, $8)",
+    [
+      stopId,
+      stopName,
+      stopLink,
+      stopArrival,
+      stopDeparture,
+      stopEmail,
+      stopPhone,
+      stopDetails,
+    ]
+  );
+  const addCompanions = await client.query(
+    "insert into trip_companions (stop, name, contact) values ($1, $2, $3) returning *",
+    [createStop.rows[0].id, companionName, companionContact]
+  );
+  createStop.rows[0].companions = addCompanions.rows;
+  res.json({
+    status: "success",
+    data: createStop.rows,
+  });
+});
+
+app.get("/lastSeen/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const lastArrived = await client.query(
+    "SELECT * from stops join trips on stops.trip = trips.id where trips.user_id = $1 ORDER BY stops.actual_arrival DESC LIMIT 1",
+    [userId]
+  );
+  const lastDeparted = await client.query(
+    "SELECT * from stops join trips on stops.trip = trips.id where trips.user_id = $1 ORDER BY stops.actual_departure DESC LIMIT 1",
+    [userId]
+  );
+  let dbres =
+    lastArrived.rows[0] >= lastDeparted.rows[0] ? lastArrived : lastDeparted;
+  res.json({
+    status: "success",
+    data: dbres.rows,
   });
 });
 
