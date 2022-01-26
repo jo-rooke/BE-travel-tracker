@@ -6,7 +6,15 @@
   "scripts": {
     "start": "node dist/server.js",
     "start:dev": "LOCAL=true ts-node server.ts",
-    "postinstall": "tsc"
+    "postinstall": "tsc",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "lint": "eslint src",
+    "type-check": "tsc --noEmit",
+    "test": "react-scripts test --watchAll=false",
+    "test:watch": "react-scripts test",
+    "build": "react-scripts build",
+    "cypress:open": "cypress open"
   },
   "author": "your name here",
   "license": "ISC",
