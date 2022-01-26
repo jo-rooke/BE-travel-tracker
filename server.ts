@@ -33,11 +33,11 @@ app.get("/users", async (req, res) => {
   });
 });
 
-app.get("/contacts/stops/:stopId", async (req, res) => {
-  const { stopId } = req.params;
+app.get("/contacts/trips/:tripId", async (req, res) => {
+  const { tripId } = req.params;
   const dbres = await client.query(
-    "select name, email from contacts join trip_contacts on trip_contacts.contact = contacts.id where trip_contacts.stop = $1",
-    [stopId]
+    "select name, email from contacts join trip_contacts on trip_contacts.contact = contacts.id where trip_contacts.trip = $1",
+    [tripId]
   );
   res.json({
     status: "success",
@@ -84,9 +84,10 @@ app.put("/contacts/:contactId", async (req, res) => {
 
 app.delete("/contacts/:contactId", async (req, res) => {
   const { contactId } = req.params;
-  const dbres = await client.query("delete from contacts WHERE id = $1", [
-    contactId,
-  ]);
+  const dbres = await client.query(
+    "delete from contacts WHERE id = $1 returning *",
+    [contactId]
+  );
   res.json({
     status: "success",
     data: dbres.rows,
@@ -137,23 +138,25 @@ app.get("/trips/:userId", async (req, res) => {
 
 app.post("/trips/:userId", async (req, res) => {
   const { userId } = req.params;
-  const { tripName, contactId } = req.body;
+  const { tripName, contactIds } = req.body;
   const createTrip = await client.query(
     "insert into trips (user_id, name) values ($1, $2) returning *",
     [userId, tripName]
   );
-  const createContacts = await client.query(
-    "insert into trip_contacts (trip, contact) values ($1, $2) returning *",
-    [createTrip.rows[0].id, contactId]
-  );
-  createTrip.rows[0].contacts = createContacts.rows;
+  createTrip.rows[0].contacts = [];
+  for (let contact of contactIds) {
+    const createContacts = await client.query(
+      "insert into trip_contacts (trip, contact) values ($1, $2) returning *",
+      [createTrip.rows[0].id, contact]
+    );
+    createTrip.rows[0].contacts.push(createContacts.rows[0]);
+  }
   res.json({
     status: "success",
     data: createTrip.rows,
   });
 });
 
-//- updates stops.actual_departure to be the current timestamp, where stops.id === stopId
 app.put("/stops/departure/:stopId", async (req, res) => {
   const { stopId } = req.params;
   const dbres = await client.query(
@@ -214,7 +217,7 @@ app.get("/stops/:tripId", async (req, res) => {
 });
 
 app.post("/stops/:tripId", async (req, res) => {
-  const { stopId } = req.params;
+  const { tripId } = req.params;
   const {
     stopName,
     stopLink,
@@ -227,9 +230,9 @@ app.post("/stops/:tripId", async (req, res) => {
     companionContact,
   } = req.body;
   const createStop = await client.query(
-    "INSERT INTO stops (trip, name, location_link, exp_arrival, exp_departure, actual_arrival, actual_departure, best_email, best_phone, details) values ($1, $2, $3, $4, $5, null, null, $6, $7, $8)",
+    "INSERT INTO stops (trip, name, location_link, exp_arrival, exp_departure, actual_arrival, actual_departure, best_email, best_phone, details) values ($1, $2, $3, $4, $5, null, null, $6, $7, $8) RETURNING *",
     [
-      stopId,
+      tripId,
       stopName,
       stopLink,
       stopArrival,
@@ -253,18 +256,18 @@ app.post("/stops/:tripId", async (req, res) => {
 app.get("/lastSeen/:userId", async (req, res) => {
   const { userId } = req.params;
   const lastArrived = await client.query(
-    "SELECT * from stops join trips on stops.trip = trips.id where trips.user_id = $1 ORDER BY stops.actual_arrival DESC LIMIT 1",
+    "SELECT * FROM stops join trips on stops.trip = trips.id where trips.user_id = $1 AND stops.actual_arrival = (SELECT MAX (actual_arrival) FROM stops );",
     [userId]
   );
   const lastDeparted = await client.query(
-    "SELECT * from stops join trips on stops.trip = trips.id where trips.user_id = $1 ORDER BY stops.actual_departure DESC LIMIT 1",
+    "SELECT * FROM stops join trips on stops.trip = trips.id where trips.user_id = $1 AND stops.actual_departure= (SELECT MAX (actual_arrival) FROM stops );",
     [userId]
   );
   let dbres =
     lastArrived.rows[0] >= lastDeparted.rows[0] ? lastArrived : lastDeparted;
   res.json({
     status: "success",
-    data: dbres.rows,
+    data: lastArrived.rows,
   });
 });
 
