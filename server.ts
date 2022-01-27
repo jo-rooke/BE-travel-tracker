@@ -124,7 +124,7 @@ app.get("/trips/:userId", async (req, res) => {
     );
     trip.dateRange = tripFirstLast.rows;
     const contacts = await client.query(
-      "Select name from contacts join trip_contacts on contacts.id = trip_contacts.trip where trip_contacts.trip = $1",
+      "Select name, activated from contacts join trip_contacts on contacts.id = trip_contacts.trip where trip_contacts.trip = $1",
       [trip.id]
     );
     trip.contacts = contacts.rows;
