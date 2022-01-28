@@ -266,7 +266,8 @@ app.get("/lastseen/:userId", async (req, res) => {
   );
   lastDeparted.rows[0].arr_or_dep = "departed from";
   let dbres =
-    lastArrived.rows[0].actual_arrival >= lastDeparted.rows[0].actual_departure
+    lastArrived.rows[0].actual_arrival.getTime() >=
+    lastDeparted.rows[0].actual_departure.getTime()
       ? lastArrived
       : lastDeparted;
   res.json({
