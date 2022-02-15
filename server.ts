@@ -13,9 +13,29 @@ const dbConfig = {
 };
 
 const app = express();
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://jr-travel-tracker.netlify.app",
+];
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin
+      // (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg =
+          "The CORS policy for this site does not " +
+          "allow access from the specified Origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+  })
+);
 
 app.use(express.json()); //add body parser to each following route handler
-app.use(cors()); //add CORS support to each following route handler
+// app.use(cors()); //add CORS support to each following route handler
 
 const client = new Client(dbConfig);
 client.connect();
@@ -124,7 +144,7 @@ app.get("/trips/:userId", async (req, res) => {
     );
     trip.dateRange = tripFirstLast.rows;
     const contacts = await client.query(
-      "Select name, activated from contacts join trip_contacts on contacts.id = trip_contacts.trip where trip_contacts.trip = $1",
+      "Select name, activated from contacts join trip_contacts on contacts.id = trip_contacts.contact where trip_contacts.trip = $1",
       [trip.id]
     );
     trip.contacts = contacts.rows;
