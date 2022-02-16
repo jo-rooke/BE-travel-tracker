@@ -265,12 +265,12 @@ app.post("/stops/:tripId", async (req, res) => {
 app.get("/lastseen/:userId", async (req, res) => {
   const { userId } = req.params;
   const lastArrived = await client.query(
-    "SELECT contacts.email as contact_email, users.name as from_name, contacts.name as to_name, stops.name as stop_name, stops.location_link as stop_location_link, stops.actual_arrival as stop_last_seen, stops.best_phone as stop_phone, stops.best_email as stop_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN trip_contacts on trip_contacts.trip = trips.id INNER JOIN contacts on contacts.id = trip_contacts.contact INNER JOIN users on trips.user_id = users.id where trips.user_id = $1 AND stops.actual_arrival = (SELECT MAX (actual_arrival) FROM stops );",
+    " SELECT contacts.email as contact_email, users.name as from_name, contacts.name as to_name, stops.name as stop_name, stops.location_link as stop_location_link, stops.actual_arrival as stop_last_seen, stops.best_phone as stop_phone, stops.best_email as stop_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN users on trips.user_id = users.id INNER JOIN contacts on contacts.contact_of = users.id where users.id = $1 AND contacts.activated = true AND stops.actual_arrival = (SELECT MAX (actual_arrival) FROM stops);",
     [userId]
   );
   lastArrived.rows[0].arr_or_dep = "arrived at";
   const lastDeparted = await client.query(
-    "SELECT contacts.email as contact_email, users.name as from_name, contacts.name as to_name, stops.name as stop_name, stops.location_link as stop_location_link, stops.actual_departure as stop_last_seen, stops.best_phone as stop_phone, stops.best_email as stop_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN trip_contacts on trip_contacts.trip = trips.id INNER JOIN contacts on contacts.id = trip_contacts.contact INNER JOIN users on trips.user_id = users.id where trips.user_id = $1 AND stops.actual_departure = (SELECT MAX (actual_departure) FROM stops );",
+    " SELECT contacts.email as contact_email, users.name as from_name, contacts.name as to_name, stops.name as stop_name, stops.location_link as stop_location_link, stops.actual_departure as stop_last_seen, stops.best_phone as stop_phone, stops.best_email as stop_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN users on trips.user_id = users.id INNER JOIN contacts on contacts.contact_of = users.id where users.id = $1 AND contacts.activated = true AND stops.actual_departure = (SELECT MAX (actual_departure) FROM stops);",
     [userId]
   );
   lastDeparted.rows[0].arr_or_dep = "departed from";
