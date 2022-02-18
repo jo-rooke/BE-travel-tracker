@@ -235,8 +235,7 @@ app.post("/stops/:tripId", async (req, res) => {
     stopEmail,
     stopPhone,
     stopDetails,
-    companionName,
-    companionContact,
+    companions,
   } = req.body;
   const createStop = await client.query(
     "INSERT INTO stops (trip, name, location_link, exp_arrival, exp_departure, actual_arrival, actual_departure, best_email, best_phone, details) values ($1, $2, $3, $4, $5, null, null, $6, $7, $8) RETURNING *",
@@ -251,11 +250,13 @@ app.post("/stops/:tripId", async (req, res) => {
       stopDetails,
     ]
   );
-  const addCompanions = await client.query(
-    "insert into trip_companions (stop, name, contact) values ($1, $2, $3) returning *",
-    [createStop.rows[0].id, companionName, companionContact]
-  );
-  createStop.rows[0].companions = addCompanions.rows;
+  for (let companion of companions) {
+    const addCompanions = await client.query(
+      "insert into trip_companions (stop, name, contact) values ($1, $2, $3) returning *",
+      [createStop.rows[0].id, companion.name, companion.contact]
+    );
+    createStop.rows[0].companions = [...companions, addCompanions.rows[0]];
+  }
   res.json({
     status: "success",
     data: createStop.rows,
