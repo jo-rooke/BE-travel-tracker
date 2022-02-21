@@ -13,9 +13,29 @@ const dbConfig = {
 };
 
 const app = express();
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://jr-travel-tracker.netlify.app",
+];
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin
+      // (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg =
+          "The CORS policy for this site does not " +
+          "allow access from the specified Origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+  })
+);
 
 app.use(express.json()); //add body parser to each following route handler
-app.use(cors()); //add CORS support to each following route handler
+// app.use(cors()); //add CORS support to each following route handler
 
 const client = new Client(dbConfig);
 client.connect();
@@ -100,17 +120,6 @@ app.get("/trips/:userId", async (req, res) => {
     "select id, name from trips where user_id = $1 ",
     [userId]
   );
-  // interface ITripLength {
-  //   exp_time: string;
-  // }
-  // function calcTripLength(startAndEnd: ITripLength[]) {
-  //   const start = startAndEnd[0].exp_time;
-  //   const end = startAndEnd[1].exp_time;
-  //   const startDate = start.slice(0, 10).split("-");
-  //   const endDate = end.slice(0, 10).split("-");
-  //   console.log(start, end, startAndEnd);
-  //   return `${startDate} - ${endDate}`;
-  // }
   for (let i = 0; i < tripNames.rowCount; i++) {
     const trip = tripNames.rows[i];
     const stopCount = await client.query(
@@ -124,7 +133,7 @@ app.get("/trips/:userId", async (req, res) => {
     );
     trip.dateRange = tripFirstLast.rows;
     const contacts = await client.query(
-      "Select name, activated from contacts join trip_contacts on contacts.id = trip_contacts.trip where trip_contacts.trip = $1",
+      "Select name, activated from contacts join trip_contacts on contacts.id = trip_contacts.contact where trip_contacts.trip = $1",
       [trip.id]
     );
     trip.contacts = contacts.rows;
@@ -226,8 +235,7 @@ app.post("/stops/:tripId", async (req, res) => {
     stopEmail,
     stopPhone,
     stopDetails,
-    companionName,
-    companionContact,
+    companions,
   } = req.body;
   const createStop = await client.query(
     "INSERT INTO stops (trip, name, location_link, exp_arrival, exp_departure, actual_arrival, actual_departure, best_email, best_phone, details) values ($1, $2, $3, $4, $5, null, null, $6, $7, $8) RETURNING *",
@@ -242,11 +250,13 @@ app.post("/stops/:tripId", async (req, res) => {
       stopDetails,
     ]
   );
-  const addCompanions = await client.query(
-    "insert into trip_companions (stop, name, contact) values ($1, $2, $3) returning *",
-    [createStop.rows[0].id, companionName, companionContact]
-  );
-  createStop.rows[0].companions = addCompanions.rows;
+  for (let companion of companions) {
+    const addCompanions = await client.query(
+      "insert into trip_companions (stop, name, contact) values ($1, $2, $3) returning *",
+      [createStop.rows[0].id, companion.name, companion.contact]
+    );
+    createStop.rows[0].companions = [...companions, addCompanions.rows[0]];
+  }
   res.json({
     status: "success",
     data: createStop.rows,
@@ -256,18 +266,18 @@ app.post("/stops/:tripId", async (req, res) => {
 app.get("/lastseen/:userId", async (req, res) => {
   const { userId } = req.params;
   const lastArrived = await client.query(
-    "SELECT contacts.email as contact_email, users.name as user_name, contacts.name as contact_name, stops.name as stop_name, stops.location_link , stops.actual_arrival as stop_last_seen, stops.best_phone, stops.best_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN trip_contacts on trip_contacts.trip = trips.id INNER JOIN contacts on contacts.id = trip_contacts.contact INNER JOIN users on trips.user_id = users.id where trips.user_id = $1 AND stops.actual_arrival = (SELECT MAX (actual_arrival) FROM stops );",
+    " SELECT contacts.email as contact_email, users.name as from_name, contacts.name as to_name, stops.name as stop_name, stops.location_link as stop_location_link, stops.actual_arrival as stop_last_seen, stops.best_phone as stop_phone, stops.best_email as stop_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN users on trips.user_id = users.id INNER JOIN contacts on contacts.contact_of = users.id where users.id = $1 AND contacts.activated = true AND stops.actual_arrival = (SELECT MAX (actual_arrival) FROM stops);",
     [userId]
   );
   lastArrived.rows[0].arr_or_dep = "arrived at";
   const lastDeparted = await client.query(
-    "SELECT contacts.email as contact_email, users.name as user_name, contacts.name as contact_name, stops.name as stop_name, stops.location_link , stops.actual_departure as stop_last_seen, stops.best_phone, stops.best_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN trip_contacts on trip_contacts.trip = trips.id INNER JOIN contacts on contacts.id = trip_contacts.contact INNER JOIN users on trips.user_id = users.id where trips.user_id = $1 AND stops.actual_departure = (SELECT MAX (actual_departure) FROM stops );",
+    " SELECT contacts.email as contact_email, users.name as from_name, contacts.name as to_name, stops.name as stop_name, stops.location_link as stop_location_link, stops.actual_departure as stop_last_seen, stops.best_phone as stop_phone, stops.best_email as stop_email, trips.name as trip_name FROM trips INNER JOIN stops on trips.id = stops.trip INNER JOIN users on trips.user_id = users.id INNER JOIN contacts on contacts.contact_of = users.id where users.id = $1 AND contacts.activated = true AND stops.actual_departure = (SELECT MAX (actual_departure) FROM stops);",
     [userId]
   );
   lastDeparted.rows[0].arr_or_dep = "departed from";
   let dbres =
-    lastArrived.rows[0].actual_arrival.getTime() >=
-    lastDeparted.rows[0].actual_departure.getTime()
+    lastArrived.rows[0].stop_last_seen.getTime() >=
+    lastDeparted.rows[0].stop_last_seen.getTime()
       ? lastArrived
       : lastDeparted;
   res.json({
