@@ -15,7 +15,7 @@ const dbConfig = {
 const app = express();
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://jr-travel-tracker.netlify.app",
+  "https://right-track.netlify.app",
 ];
 app.use(
   cors({
